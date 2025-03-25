@@ -498,7 +498,7 @@ npm run deploy`;
                           Download Project
                         </button>
                         {/* Use the image at path https://deploy.workers.cloudflare.com/button to render a clickable image button */}
-                        <a href={`https://dash.cloudflare.com/?to=/:account/workers-and-pages/create/deploy-to-workers&repository=${project.gitRepository.url}`} target="_blank" rel="noopener noreferrer">
+                        <a href={`https://deploy.workers.com/?url=${project.gitRepository.url}`} target="_blank" rel="noopener noreferrer">
                           <img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Workers" />
                         </a>
                       </div>
