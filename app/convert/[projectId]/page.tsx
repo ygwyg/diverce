@@ -498,6 +498,10 @@ npm run deploy`;
                         <button className="btn-primary">
                           Download Project
                         </button>
+                        {/* Use the image at path https://deploy.workers.cloudflare.com/button to render a clickable image button */}
+                        <a href={`https://deploy.workers.com/?url=${project.gitRepository.url}`} target="_blank" rel="noopener noreferrer">
+                          <img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Workers" />
+                        </a>
                       </div>
                     </div>
                   )}
