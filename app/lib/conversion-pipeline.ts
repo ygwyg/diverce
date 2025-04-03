@@ -129,7 +129,7 @@ export class ConversionPipeline {
     
     const configPath = path.join(this.options.projectPath, 'open-next.config.ts');
     const config = `import { defineCloudflareConfig } from "@opennextjs/cloudflare";
-${this.options.enableKVCache ? 'import kvIncrementalCache from "@opennextjs/cloudflare/kv-cache";' : ''}
+${this.options.enableKVCache ? 'import kvIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache";' : ''}
 
 export default defineCloudflareConfig({
 ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
