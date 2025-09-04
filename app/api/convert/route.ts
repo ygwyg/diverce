@@ -178,6 +178,7 @@ async function startConversion(
       projectName: project.name,
       enableKVCache: options.enableKVCache,
       kvNamespaceId: options.kvNamespaceId,
+      packageJsonPath: options.packageJsonPath,
     });
     
     const result = await pipeline.run();

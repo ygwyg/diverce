@@ -10,6 +10,7 @@ export interface ConversionOptions {
   projectName: string;
   enableKVCache?: boolean;
   kvNamespaceId?: string;
+  packageJsonPath?: string; // Optional relative path to package.json (e.g., 'src')
 }
 
 export interface ConversionResult {
@@ -24,6 +25,14 @@ export class ConversionPipeline {
 
   constructor(options: ConversionOptions) {
     this.options = options;
+  }
+
+  // Helper method to get the package.json path
+  private getPackageJsonPath(): string {
+    if (this.options.packageJsonPath) {
+      return path.join(this.options.projectPath, this.options.packageJsonPath, 'package.json');
+    }
+    return path.join(this.options.projectPath, 'package.json');
   }
 
   private log(message: string) {
@@ -78,10 +87,15 @@ export class ConversionPipeline {
   private async verifyNextJsProject() {
     this.log('Verifying Next.js project...');
 
-    const packageJsonPath = path.join(this.options.projectPath, 'package.json');
+    // Get the package.json path
+    const packageJsonPath = this.getPackageJsonPath();
+
+    if (this.options.packageJsonPath) {
+      this.log(`Using custom package.json path: ${this.options.packageJsonPath}`);
+    }
 
     if (!fs.existsSync(packageJsonPath)) {
-      throw new Error('Could not find package.json in the project directory');
+      throw new Error(`Could not find package.json at ${packageJsonPath}`);
     }
 
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -114,8 +128,17 @@ export class ConversionPipeline {
     this.log('Installing OpenNext dependencies...');
 
     try {
+      // Determine the correct directory to run npm install in
+      let installDir = this.options.projectPath;
+
+      // If a custom package.json path is provided, use that directory for npm install
+      if (this.options.packageJsonPath) {
+        installDir = path.join(this.options.projectPath, this.options.packageJsonPath);
+        this.log(`Installing dependencies in custom directory: ${installDir}`);
+      }
+
       await execAsync('npm install --save-dev @opennextjs/cloudflare@latest wrangler@latest', {
-        cwd: this.options.projectPath
+        cwd: installDir
       });
       this.log('Dependencies installed successfully ✅');
     } catch (error) {
@@ -126,7 +149,13 @@ export class ConversionPipeline {
   private async createOpenNextConfig() {
     this.log('Creating or updating open-next.config.ts...');
 
-    const configPath = path.join(this.options.projectPath, 'open-next.config.ts');
+    // Use the same directory as package.json for config files
+    let configDir = this.options.projectPath;
+    if (this.options.packageJsonPath) {
+      configDir = path.join(this.options.projectPath, this.options.packageJsonPath);
+    }
+
+    const configPath = path.join(configDir, 'open-next.config.ts');
     const config = `import { defineCloudflareConfig } from "@opennextjs/cloudflare";
 ${this.options.enableKVCache ? 'import kvIncrementalCache from "@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache";' : ''}
 
@@ -142,7 +171,13 @@ ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
   private async createWranglerConfig() {
     this.log('Creating or updating wrangler.jsonc...');
 
-    const wranglerPath = path.join(this.options.projectPath, 'wrangler.jsonc');
+    // Use the same directory as package.json for config files
+    let configDir = this.options.projectPath;
+    if (this.options.packageJsonPath) {
+      configDir = path.join(this.options.projectPath, this.options.packageJsonPath);
+    }
+
+    const wranglerPath = path.join(configDir, 'wrangler.jsonc');
     const kvNamespaces = this.options.enableKVCache && this.options.kvNamespaceId
       ? `[
   {
@@ -173,7 +208,7 @@ ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
   private async updatePackageJson() {
     this.log('Updating package.json scripts...');
 
-    const packageJsonPath = path.join(this.options.projectPath, 'package.json');
+    const packageJsonPath = this.getPackageJsonPath();
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
     packageJson.scripts = packageJson.scripts || {};
@@ -188,8 +223,7 @@ ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
   private async removeConflictingReferences() {
     this.log('Removing conflicting references...');
 
-    // Remove next-on-pages from dependencies if present
-    const packageJsonPath = path.join(this.options.projectPath, 'package.json');
+    const packageJsonPath = this.getPackageJsonPath();
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
     if (packageJson.dependencies?.['@cloudflare/next-on-pages']) {
@@ -204,10 +238,16 @@ ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
     }
 
+    // Determine directory to search based on package.json location
+    let searchDir = this.options.projectPath;
+    if (this.options.packageJsonPath) {
+      searchDir = path.join(this.options.projectPath, this.options.packageJsonPath);
+    }
+
     // Replace "export const runtime = 'edge'" references
     try {
       await execAsync("find . -type f -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' | xargs -I{} sed -i '' 's/export const runtime = .edge.;/\\/\\/ Removed edge runtime declaration/g' {}", {
-        cwd: this.options.projectPath,
+        cwd: searchDir,
       });
 
       this.log('Removed edge runtime declarations from files');
@@ -221,11 +261,24 @@ ${this.options.enableKVCache ? '  incrementalCache: kvIncrementalCache,' : ''}
   private async updateGitignore() {
     this.log('Updating .gitignore...');
 
-    const gitignorePath = path.join(this.options.projectPath, '.gitignore');
+    // Find relevant .gitignore location
+    // First check project root, then package.json directory if different
+    let gitignorePath = path.join(this.options.projectPath, '.gitignore');
     let content = '';
+
+    // If package.json is in a subfolder and root .gitignore doesn't exist, look in the subfolder
+    if (this.options.packageJsonPath && !fs.existsSync(gitignorePath)) {
+      const subfolderGitignore = path.join(this.options.projectPath, this.options.packageJsonPath, '.gitignore');
+      if (fs.existsSync(subfolderGitignore)) {
+        gitignorePath = subfolderGitignore;
+        this.log(`Using .gitignore from subfolder: ${this.options.packageJsonPath}/.gitignore`);
+      }
+    }
 
     if (fs.existsSync(gitignorePath)) {
       content = fs.readFileSync(gitignorePath, 'utf8');
+    } else {
+      this.log('No existing .gitignore found, creating a new one');
     }
 
     if (!content.includes('.open-next')) {

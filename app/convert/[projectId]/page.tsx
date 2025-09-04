@@ -34,6 +34,7 @@ interface ConversionOptions {
   createBranch: boolean;
   branchName: string;
   commitAndPush: boolean;
+  packageJsonPath: string;
 }
 
 interface ConversionStatus {
@@ -59,6 +60,7 @@ export default function ConvertProject() {
     createBranch: true,
     branchName: 'cloudflare-migration',
     commitAndPush: false,
+    packageJsonPath: '',
   });
   
   const [conversionStatus, setConversionStatus] = useState<ConversionStatus>({
@@ -321,6 +323,30 @@ export default function ConvertProject() {
                       <a className="text-sm" href="https://dash.cloudflare.com/?to=/:account/workers/kv/namespaces" target="_blank">Create a new KV namespace here</a>
                   </div>
                 )}
+                
+                <div className="border-t border-accents-2 pt-4 mb-4">
+                  <h3 className="font-semibold text-foreground mb-2">Project Options</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label htmlFor="packageJsonPath" className="block text-foreground text-sm">
+                        Package.json Path (optional)
+                      </label>
+                      <input
+                        type="text"
+                        id="packageJsonPath"
+                        name="packageJsonPath"
+                        value={options.packageJsonPath}
+                        onChange={handleInputChange}
+                        placeholder="e.g., src"
+                        className="input-field"
+                      />
+                      <p className="text-sm text-foreground-tertiary">
+                        If package.json is not in the root, specify the subfolder (e.g., "src")
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 
                 <div className="border-t border-accents-2 pt-4">
                   <h3 className="font-semibold text-foreground mb-2">Git Options</h3>
