@@ -6,9 +6,13 @@ import Link from 'next/link'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Diverce - Convert Next.js from Vercel to Cloudflare',
-  description: 'A tool to easily convert Next.js projects from Vercel to Cloudflare',
+  title: {
+    default: 'Diverce',
+    template: '%s | Diverce',
+  },
+  description: 'Convert Next.js projects from Vercel to Cloudflare easily.',
 }
+
 
 export default function RootLayout({
   children,
